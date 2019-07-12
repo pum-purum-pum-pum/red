@@ -203,7 +203,6 @@ fn shader_from_source(
         if !gl.get_shader_compile_status(id) {
             let error = gl.get_shader_info_log(id);
             #[cfg(any(target_os = "ios", target_os = "android", target_os = "emscripten"))]
-            trace!("{}", error);
             return Err(error);
         }
     }
