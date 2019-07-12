@@ -1,0 +1,11 @@
+[package]
+name = "red"
+version = "0.1.0"
+authors = ["vlad <vladzhukovtirko@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+glow = {git = "https://github.com/grovesNL/glow", features = ["sdl2"]}
+libc = "*"
+image = "0.21.1"
+vertex_derive = {path="vertex_derive"}
