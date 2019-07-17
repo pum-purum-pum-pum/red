@@ -15,7 +15,7 @@ pub trait ContextTypes {
     
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GL {
     inner: Rc<GL_Context>
 }
@@ -58,8 +58,13 @@ impl Frame {
         program: &Program,
         draw_type: &DrawType
     ) {
-        program.set_used();
+        // TODO make as param
         vao.bind();
+        unsafe {
+            self.gl.enable(glow::BLEND);
+            self.gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
+        }
+        program.set_used();
         match index_buffer {
             Some(index_buffer) => {
                 index_buffer.bind();
@@ -90,6 +95,7 @@ impl Frame {
                 unimplemented!();
             }
         }
+        vao.unbind();
     }
     pub fn set_clear_color(&self, red: f32, green: f32, blue: f32, alpha: f32) {
         unsafe{self.gl.clear_color(red, green, blue, alpha)};
@@ -126,6 +132,10 @@ impl Viewport {
         unsafe {
             gl.viewport(self.x, self.y, self.w, self.h);
         }
+    }
+
+    pub fn dimensions(&self) -> (i32, i32) {
+        (self.w, self.h)
     }
 }
 

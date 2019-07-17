@@ -4,6 +4,47 @@ use glow;
 use glow::Context;
 use std::os::raw::{c_uint};
 
+#[derive(Debug)]
+pub struct MapArray<'a, T> where T: 'static {
+    gl: GL,
+    pub slice: &'a mut [T],
+    len: usize,
+    // _phantom_data: std::marker::PhantomData<T>
+}
+
+impl<'a, T> MapArray<'a, T> {
+    pub unsafe fn new(gl: &GL, len: usize) -> Result<MapArray<T>, String> {
+        let ptr =
+            gl.map_buffer_range(
+                glow::ARRAY_BUFFER, 
+                0,
+                (::std::mem::size_of::<T>() * len) as i32,
+                glow::MAP_WRITE_BIT | glow::MAP_FLUSH_EXPLICIT_BIT 
+            ) as *mut T;
+        if ptr.is_null() {
+            return Err(format!("buffer map is null pointer. Error_number={}", gl.get_error()))
+        }
+        let res = ::std::slice::from_raw_parts_mut(
+            ptr, 
+            len
+        );
+        Ok(MapArray {
+            gl: gl.clone(),
+            slice: res,
+            len: len
+        })
+    }
+}
+
+impl<'a, T> Drop for MapArray<'a, T> {
+    fn drop(&mut self) {
+        unsafe {
+            self.gl.flush_mapped_buffer_range(glow::ARRAY_BUFFER, 0, (::std::mem::size_of::<T>() * self.len) as i32);
+            self.gl.unmap_buffer(glow::ARRAY_BUFFER);
+        }
+    }
+}
+
 pub struct IndexBuffer {
     veb: ElementArrayBuffer,
     pub size: usize
@@ -53,8 +94,8 @@ pub struct Buffer<B>
 where
     B: BufferType,
 {
-    gl: GL,
-    vbo: c_uint,
+    pub gl: GL,
+    pub vbo: c_uint,
     _marker: ::std::marker::PhantomData<B>,
 }
 

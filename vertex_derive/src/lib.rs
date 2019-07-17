@@ -19,14 +19,17 @@ fn generate_impl(ast: &syn::DeriveInput) -> quote::Tokens {
     let fields_vertex_attrib_pointer = generate_vertex_attrib_pointer_calls(&ast.body);
 
     let vertex_buffer = syn::Ident::from(ident.to_string() + &"Buffer".to_string());
+    // let vertex_buffer = syn::Ident::from("VertexBuffer".to_string());
         quote!{
-            pub struct #vertex_buffer {
-                vbo: ArrayBuffer
+            pub struct #vertex_buffer<T> {
+                vbo: red::buffer::ArrayBuffer,
+                pub vao: red::buffer::VertexArray,
+                pub len: usize,
+                _phantom_data: std::marker::PhantomData<T>
             }
-            
 
-            impl #vertex_buffer {
-                pub fn new<V>(gl: &red::GL, shape: &[V]) -> Result<#vertex_buffer, String> {
+            impl #vertex_buffer<#ident> {
+                pub fn new(gl: &red::GL, shape: &[#ident]) -> Result<#vertex_buffer<#ident>, String> {
                     let vbo: red::buffer::Buffer<red::buffer::BufferTypeArray> 
                         = red::buffer::Buffer::new(&gl)?;
                     vbo.bind();
@@ -34,11 +37,24 @@ fn generate_impl(ast: &syn::DeriveInput) -> quote::Tokens {
                     vbo.unbind();
                     Ok(#vertex_buffer {
                         vbo: vbo,
+                        vao: red::buffer::VertexArray::new(gl)?,
+                        len: shape.len(),
+                        _phantom_data: std::marker::PhantomData
                     })
                 }
+
+                pub fn map_array(&self) -> Result<red::buffer::MapArray<#ident>, String>{
+                    unsafe {
+                        self.vbo.bind();
+                        let res: Result<red::buffer::MapArray<#ident>, String> = 
+                            red::buffer::MapArray::new(&self.vbo.gl, self.len); // TODO: move gl to vertex buffer
+                        res
+                    }
+                }
+
             }
 
-            impl red::buffer::VertexBufferBehavior for #vertex_buffer {
+            impl red::buffer::VertexBufferBehavior for #vertex_buffer<#ident> {
                 #[allow(unused_variables)]
                 fn vertex_attrib_pointers(&self, gl: &red::GL, program: &red::shader::Program) {
                     let stride = ::std::mem::size_of::<#ident>();

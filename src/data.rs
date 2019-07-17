@@ -78,17 +78,11 @@ impl From<i32> for i32_ {
 #[allow(non_camel_case_types)]
 #[derive(Copy, Clone, Debug)]
 #[repr(C, packed)]
-pub struct f32_f32_f32 {
-    pub d0: f32,
-    pub d1: f32,
-    pub d2: f32,
-}
+pub struct f32_f32_f32(pub f32, pub f32, pub f32);
 
 impl f32_f32_f32 {
     pub fn new(d0: f32, d1: f32, d2: f32) -> f32_f32_f32 {
-        f32_f32_f32 {
-            d0, d1, d2
-        }
+        f32_f32_f32(d0, d1, d2)
     }
 
     pub unsafe fn vertex_attrib_pointer(gl: &GL, stride: c_int, location: u32, offset: c_int) {

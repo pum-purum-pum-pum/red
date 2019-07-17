@@ -9,6 +9,8 @@ use super::buffer::{VertexArray, VertexBufferBehavior};
 #[derive(Clone, Debug)]
 pub struct Texture {
     texture: <GL_Context as Context>::Texture,
+    w: u32,
+    h: u32,
 }
 
 impl PartialEq for Texture {
@@ -42,8 +44,13 @@ impl Texture {
             gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
             gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
             gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::LINEAR as i32);
-            Texture { texture }
+            gl_ctx.bind_texture(glow::TEXTURE_2D, None);
+            Texture { texture, w: width, h: height }
         }
+    }
+    
+    pub fn dimensions(&self) -> (u32, u32) {
+        (self.w, self.h)
     }
 }
 
@@ -57,10 +64,47 @@ pub trait UniformValue: Clone + PartialEq {
     fn set(self, gl: &GL, location: <GL_Context as Context>::UniformLocation);
 }
 
+impl UniformValue for (f32, f32, f32, f32) {
+    fn set(self, gl: &GL, location: <GL_Context as Context>::UniformLocation) {
+        unsafe {
+            gl.uniform_4_f32(Some(location), self.0, self.1, self.2, self.3);
+        }
+    }
+}
+
+
+impl UniformValue for (f32, f32, f32) {
+    fn set(self, gl: &GL, location: <GL_Context as Context>::UniformLocation) {
+        unsafe {
+            gl.uniform_3_f32(Some(location), self.0, self.1, self.2);
+        }
+    }
+}
+
+impl UniformValue for (f32, f32) {
+    fn set(self, gl: &GL, location: <GL_Context as Context>::UniformLocation) {
+        unsafe {
+            gl.uniform_2_f32(Some(location), self.0, self.1);
+        }
+    }
+}
+
+
 impl UniformValue for f32 {
     fn set(self, gl: &GL, location: <GL_Context as Context>::UniformLocation) {
         unsafe {
             gl.uniform_1_f32(Some(location), self);
+        }
+    }
+}
+
+impl UniformValue for [[f32; 4]; 4] {
+    fn set(self, gl: &GL, location: <GL_Context as Context>::UniformLocation) {
+        unsafe {
+            // transmute here according to 
+            // https://users.rust-lang.org/t/converting-f32-4-4-to-f32-16/22391 
+            // is safe
+            gl.uniform_matrix_4_f32_slice(Some(location), false, &std::mem::transmute(self))
         }
     }
 }
@@ -87,7 +131,7 @@ impl Program {
     }
 
     pub fn from_shaders(gl: &GL, shaders: &[Shader]) -> Result<Program, String> {
-        let program_id = unsafe { gl.create_program().expect("Cannot create program")};
+        let program_id = unsafe { gl.create_program()?};
 
         for shader in shaders {
             unsafe {
@@ -97,14 +141,9 @@ impl Program {
 
         unsafe {
             gl.link_program(program_id);
-        }
-
-        unsafe {
-            // gl.GetProgramiv(program_id, gl::LINK_STATUS, &mut success);
             if !gl.get_program_link_status(program_id) {
-                panic!(gl.get_program_info_log(program_id));
+                return Err(gl.get_program_info_log(program_id));
             }
-
         }
         for shader in shaders {
             unsafe {
@@ -137,9 +176,7 @@ impl Program {
         self.set_used();
         let location = unsafe {
             self.gl.get_uniform_location(self.id(), name)
-            .expect(r#"name does not correspond to an active uniform variable in program 
-                        or name starts with the reserved prefix "gl_"."#
-            )
+            .expect(&format!("name \"{}\" does not correspond to an active uniform variable in program or name starts with the reserved prefix \"gl_\"", name))
         };
         uniform.set(&self.gl, location);
     }
@@ -202,7 +239,6 @@ fn shader_from_source(
     unsafe{
         if !gl.get_shader_compile_status(id) {
             let error = gl.get_shader_info_log(id);
-            #[cfg(any(target_os = "ios", target_os = "android", target_os = "emscripten"))]
             return Err(error);
         }
     }
