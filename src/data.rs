@@ -97,6 +97,27 @@ impl From<(f32, f32, f32)> for f32_f32_f32 {
     }
 }
 
+#[allow(non_camel_case_types)]
+#[derive(Copy, Clone, Debug)]
+#[repr(C, packed)]
+pub struct f32_f32_f32_f32(pub f32, pub f32, pub f32, pub f32);
+
+impl f32_f32_f32_f32 {
+    pub fn new(d0: f32, d1: f32, d2: f32, d3: f32) -> f32_f32_f32_f32 {
+        f32_f32_f32_f32(d0, d1, d2, d3)
+    }
+
+    pub unsafe fn vertex_attrib_pointer(gl: &GL, stride: c_int, location: u32, offset: c_int) {
+        gl.enable_vertex_attrib_array(location);
+        gl.vertex_attrib_pointer_f32(location, 4, glow::FLOAT, false, stride, offset);
+    }
+}
+
+impl From<(f32, f32, f32, f32)> for f32_f32_f32_f32 {
+    fn from(other: (f32, f32, f32, f32)) -> Self {
+        f32_f32_f32_f32::new(other.0, other.1, other.2, other.3)
+    }
+}
 
 #[allow(non_camel_case_types)]
 #[derive(Copy, Clone, Debug)]

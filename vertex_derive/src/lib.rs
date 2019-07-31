@@ -24,11 +24,29 @@ fn generate_impl(ast: &syn::DeriveInput) -> quote::Tokens {
             pub struct #vertex_buffer<T> {
                 vbo: red::buffer::ArrayBuffer,
                 pub vao: red::buffer::VertexArray,
-                pub len: usize,
+                pub len: Option<usize>, // a bit ugly
                 _phantom_data: std::marker::PhantomData<T>
             }
 
             impl #vertex_buffer<#ident> {
+                pub fn empty_new(gl: &red::GL) -> Result<#vertex_buffer<#ident>, String> {
+                    let vbo: red::buffer::Buffer<red::buffer::BufferTypeArray> 
+                        = red::buffer::Buffer::new(&gl)?;
+                    Ok(#vertex_buffer {
+                        vbo: vbo,
+                        vao: red::buffer::VertexArray::new(gl)?,
+                        len: None, // DO SOMETHING WITH THAT
+                        _phantom_data: std::marker::PhantomData
+                    })
+                }
+
+                pub fn dynamic_draw_data(&mut self, shape: &[#ident]) {
+                    self.vbo.bind();
+                    self.vbo.dynamic_draw_data(shape);
+                    self.len = Some(shape.len());
+                    self.vbo.unbind();
+                }
+
                 pub fn new(gl: &red::GL, shape: &[#ident]) -> Result<#vertex_buffer<#ident>, String> {
                     let vbo: red::buffer::Buffer<red::buffer::BufferTypeArray> 
                         = red::buffer::Buffer::new(&gl)?;
@@ -38,7 +56,7 @@ fn generate_impl(ast: &syn::DeriveInput) -> quote::Tokens {
                     Ok(#vertex_buffer {
                         vbo: vbo,
                         vao: red::buffer::VertexArray::new(gl)?,
-                        len: shape.len(),
+                        len: Some(shape.len()),
                         _phantom_data: std::marker::PhantomData
                     })
                 }
@@ -47,7 +65,7 @@ fn generate_impl(ast: &syn::DeriveInput) -> quote::Tokens {
                     unsafe {
                         self.vbo.bind();
                         let res: Result<red::buffer::MapArray<#ident>, String> = 
-                            red::buffer::MapArray::new(&self.vbo.gl, self.len); // TODO: move gl to vertex buffer
+                            red::buffer::MapArray::new(&self.vbo.gl, self.len.unwrap()); // TODO: move gl to vertex buffer
                         res
                     }
                 }

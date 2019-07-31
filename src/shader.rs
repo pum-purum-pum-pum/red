@@ -8,7 +8,7 @@ use super::buffer::{VertexArray, VertexBufferBehavior};
 
 #[derive(Clone, Debug)]
 pub struct Texture {
-    texture: <GL_Context as Context>::Texture,
+    pub texture: <GL_Context as Context>::Texture,
     w: u32,
     h: u32,
 }
@@ -52,7 +52,54 @@ impl Texture {
     pub fn dimensions(&self) -> (u32, u32) {
         (self.w, self.h)
     }
+
+    pub fn new(
+        gl_ctx: &GL,
+        (width, height): (u32, u32)
+    ) -> Self {
+        let mut name = 0;
+        unsafe {
+            // Create a texture for the glyphs
+            // The texture holds 1 byte per pixel as alpha data
+            gl_ctx.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
+            let name = gl_ctx.create_texture().unwrap();
+            // gl_ctx.GenTextures(1, &mut name);
+            gl_ctx.bind_texture(glow::TEXTURE_2D, Some(name));
+            gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as _);
+            gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as _);
+            gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::LINEAR as _);
+            gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::LINEAR as _);
+            gl_ctx.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RED as _,
+                width as _,
+                height as _,
+                0,
+                glow::RED,
+                glow::UNSIGNED_BYTE,
+                None,
+            );
+            gl_ctx.bind_texture(glow::TEXTURE_2D, None);
+            // gl_assert_ok!();
+
+            Self { 
+                texture: name,
+                w: width,
+                h: height
+             }
+        }
+    }
 }
+
+// TODO
+// impl Drop for Texture {
+//     fn drop(&mut self) {
+//         unsafe {
+            
+//         }
+//     }
+// }
 
 pub struct Program {
     gl: GL,
@@ -105,6 +152,14 @@ impl UniformValue for [[f32; 4]; 4] {
             // https://users.rust-lang.org/t/converting-f32-4-4-to-f32-16/22391 
             // is safe
             gl.uniform_matrix_4_f32_slice(Some(location), false, &std::mem::transmute(self))
+        }
+    }
+}
+
+impl UniformValue for [f32; 16] {
+    fn set(self, gl: &GL, location: <GL_Context as Context>::UniformLocation) {
+        unsafe {
+            gl.uniform_matrix_4_f32_slice(Some(location), false, &self)            
         }
     }
 }

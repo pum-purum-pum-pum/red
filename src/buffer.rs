@@ -137,6 +137,20 @@ where
         }
     }
 
+    pub fn dynamic_draw_data<T>(&self, data: &[T]) {
+        unsafe {
+            self.gl.buffer_data_u8_slice(
+                glow::ARRAY_BUFFER, 
+                std::slice::from_raw_parts(
+                    data.as_ptr() as *const u8, 
+                    data.len() * std::mem::size_of::<T>()
+                ),
+                glow::DYNAMIC_DRAW
+            );
+
+        }
+    }
+
     pub fn element_draw_data(&self, data: &[u16]) {
         unsafe {
             self.gl.buffer_data_u8_slice(

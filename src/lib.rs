@@ -11,6 +11,8 @@ pub mod data;
 pub mod buffer;
 pub use glow;
 
+use std::os::raw::{c_uint, c_int};
+
 pub trait ContextTypes {
     
 }
@@ -35,17 +37,69 @@ impl Deref for GL {
     }
 }
 
+#[derive(Debug, Clone,Copy)]
+pub enum Operation {
+    Replace
+}
+
+#[derive(Debug, Clone)]
+pub enum StencilTest {
+    AlwaysPass,
+    Equal,
+}
+
+impl Default for StencilTest {
+    fn default() -> Self {
+        StencilTest::AlwaysPass
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct Stencil {
+    pub mask: c_uint,
+    pub ref_value: c_int,
+    pub test: StencilTest,
+    pub pass_operation: Option<Operation>,
+}
+
+#[derive(Debug)]
 pub enum DrawType {
     Standart,
-    Instancing(usize)
+    Instancing(usize),
+}
+
+impl Default for DrawType {
+    fn default() -> Self {
+        DrawType::Standart
+    }
+}
+
+#[derive(Debug)]
+pub struct DrawParams {
+    pub stencil: Option<Stencil>,
+    pub draw_type: DrawType,
+    pub color_mask: (bool, bool, bool, bool)
+}
+
+impl Default for DrawParams {
+    fn default() -> Self {
+        Self {
+            stencil: None,
+            draw_type: DrawType::default(),
+            color_mask: (true, true, true, true)
+        }
+    }
 }
 
 pub struct Frame {
-    gl: GL
+    pub gl: GL
 }
 
 impl Frame {
     pub fn new(gl: &GL) -> Frame {
+        unsafe {
+            gl.enable(glow::STENCIL_TEST); // TODO: Should it be here?
+        }
         Frame {
             gl: gl.clone()
         }
@@ -56,21 +110,80 @@ impl Frame {
         vao: &buffer::VertexArray,
         index_buffer: Option<&buffer::IndexBuffer>,
         program: &Program,
-        draw_type: &DrawType
+        draw_params: &DrawParams
     ) {
-        // TODO make as param
         vao.bind();
         unsafe {
+        // TODO make as param
             self.gl.enable(glow::BLEND);
             self.gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
+            self.gl.color_mask(
+                draw_params.color_mask.0, 
+                draw_params.color_mask.1, 
+                draw_params.color_mask.2, 
+                draw_params.color_mask.3
+            );
+            // self.gl.enable(glow::STENCIL_TEST); // TODO: Should it be here?
         }
+        if let Some(stencil) = draw_params.stencil.clone() {
+            unsafe{
+                self.gl.stencil_mask(0xFF);
+            }
+            match stencil.test {
+                StencilTest::AlwaysPass => {
+                    unsafe {
+                        self.gl.stencil_func(
+                            glow::ALWAYS, 
+                            stencil.ref_value, 
+                            stencil.mask
+                        );
+                    }
+                },
+                StencilTest::Equal => {
+                    unsafe {
+                        self.gl.stencil_func(
+                            glow::EQUAL, 
+                            stencil.ref_value, 
+                            stencil.mask
+                        )
+                    }
+                }
+            }
+            let mut pass_operation = glow::KEEP;
+            let fail_operation = glow::KEEP;
+            let depth_fail_operation = glow::KEEP;
+            if let Some(operation) = stencil.pass_operation {
+                match operation {
+                    Operation::Replace => {
+                        pass_operation = glow::REPLACE;
+                    }
+                }
+            }
+            unsafe {
+                self.gl.stencil_op(
+                    fail_operation, 
+                    depth_fail_operation, 
+                    pass_operation
+                )
+            }
+        } else {
+            unsafe{
+                self.gl.stencil_mask(0x00);
+                self.gl.stencil_func(glow::ALWAYS, 0, 0xFF);
+                // TODO: just deltete?
+                self.gl.stencil_op(
+                    glow::KEEP, 
+                    glow::KEEP, 
+                    glow::KEEP
+                )
+            }
+        };
         program.set_used();
-        match index_buffer {
-            Some(index_buffer) => {
-                index_buffer.bind();
-                unsafe {
-                    // dbg!(index_buffer.size);
-                    match draw_type {
+        unsafe{
+            match index_buffer {
+                Some(index_buffer) => {
+                    index_buffer.bind();
+                    match draw_params.draw_type {
                         DrawType::Standart => {
                             self.gl.draw_elements(
                                 glow::TRIANGLES, 
@@ -85,24 +198,37 @@ impl Frame {
                                 index_buffer.size as i32, 
                                 glow::UNSIGNED_SHORT, 
                                 0,
-                                *instance_count as i32
+                                instance_count as i32
                             )
                         }
                     }
-                }
             }
             None => {
                 unimplemented!();
             }
         }
+        self.gl.stencil_mask(0xFF); // oh it's so painfull
+    }   
         vao.unbind();
     }
+    pub fn set_clear_stencil(&self, stencil: i32) {
+        unsafe{self.gl.clear_stencil(stencil)};
+    }
+
     pub fn set_clear_color(&self, red: f32, green: f32, blue: f32, alpha: f32) {
         unsafe{self.gl.clear_color(red, green, blue, alpha)};
     }
 
     pub fn clear_color(&self) {
         unsafe {self.gl.clear(glow::COLOR_BUFFER_BIT)};
+    }
+
+    pub fn clear_stencil(&self) {
+        unsafe {self.gl.clear(glow::STENCIL_BUFFER_BIT)};
+    }
+
+    pub fn clear_color_and_stencil(&self) {
+        unsafe {self.gl.clear(glow::COLOR_BUFFER_BIT | glow::STENCIL_BUFFER_BIT)};
     }
 }
 
