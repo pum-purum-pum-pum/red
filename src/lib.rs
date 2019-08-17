@@ -46,6 +46,7 @@ pub enum Operation {
 pub enum StencilTest {
     AlwaysPass,
     Equal,
+    NotEqual
 }
 
 impl Default for StencilTest {
@@ -68,6 +69,9 @@ pub enum DrawType {
     Instancing(usize),
 }
 
+#[derive(Debug, Default)]
+pub struct Blend;
+
 impl Default for DrawType {
     fn default() -> Self {
         DrawType::Standart
@@ -78,7 +82,8 @@ impl Default for DrawType {
 pub struct DrawParams {
     pub stencil: Option<Stencil>,
     pub draw_type: DrawType,
-    pub color_mask: (bool, bool, bool, bool)
+    pub color_mask: (bool, bool, bool, bool),
+    pub blend: Option<Blend>
 }
 
 impl Default for DrawParams {
@@ -86,7 +91,8 @@ impl Default for DrawParams {
         Self {
             stencil: None,
             draw_type: DrawType::default(),
-            color_mask: (true, true, true, true)
+            color_mask: (true, true, true, true),
+            blend: Some(Blend)
         }
     }
 }
@@ -113,17 +119,26 @@ impl Frame {
         draw_params: &DrawParams
     ) {
         vao.bind();
+        if let Some(blend) = &draw_params.blend {
+            unsafe {
+            // TODO make as param
+                self.gl.enable(glow::BLEND);
+                self.gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
+                // self.gl.enable(glow::STENCIL_TEST); // TODO: Should it be here?
+            }
+        } else {
+            unsafe {
+                // strange
+                // self.gl.disable(glow::BLEND);
+            }
+        }
         unsafe {
-        // TODO make as param
-            self.gl.enable(glow::BLEND);
-            self.gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
             self.gl.color_mask(
                 draw_params.color_mask.0, 
                 draw_params.color_mask.1, 
                 draw_params.color_mask.2, 
                 draw_params.color_mask.3
             );
-            // self.gl.enable(glow::STENCIL_TEST); // TODO: Should it be here?
         }
         if let Some(stencil) = draw_params.stencil.clone() {
             unsafe{
@@ -144,6 +159,15 @@ impl Frame {
                         self.gl.stencil_func(
                             glow::EQUAL, 
                             stencil.ref_value, 
+                            stencil.mask
+                        )
+                    }
+                },
+                StencilTest::NotEqual => {
+                    unsafe {
+                        self.gl.stencil_func(
+                            glow::NOTEQUAL,
+                            stencil.ref_value,
                             stencil.mask
                         )
                     }
