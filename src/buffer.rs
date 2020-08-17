@@ -1,11 +1,14 @@
-use super::GL;
 use super::shader;
+use super::GL;
 use glow;
 use glow::Context;
-use std::os::raw::{c_uint};
+use std::os::raw::c_uint;
 
 #[derive(Debug)]
-pub struct MapArray<'a, T> where T: 'static {
+pub struct MapArray<'a, T>
+where
+    T: 'static,
+{
     gl: GL,
     pub slice: &'a mut [T],
     len: usize,
@@ -14,24 +17,23 @@ pub struct MapArray<'a, T> where T: 'static {
 
 impl<'a, T> MapArray<'a, T> {
     pub unsafe fn new(gl: &GL, len: usize) -> Result<MapArray<T>, String> {
-        let ptr =
-            gl.map_buffer_range(
-                glow::ARRAY_BUFFER, 
-                0,
-                (::std::mem::size_of::<T>() * len) as i32,
-                glow::MAP_WRITE_BIT | glow::MAP_FLUSH_EXPLICIT_BIT 
-            ) as *mut T;
+        let ptr = gl.map_buffer_range(
+            glow::ARRAY_BUFFER,
+            0,
+            (::std::mem::size_of::<T>() * len) as i32,
+            glow::MAP_WRITE_BIT | glow::MAP_FLUSH_EXPLICIT_BIT,
+        ) as *mut T;
         if ptr.is_null() {
-            return Err(format!("buffer map is null pointer. Error_number={}", gl.get_error()))
+            return Err(format!(
+                "buffer map is null pointer. Error_number={}",
+                gl.get_error()
+            ));
         }
-        let res = ::std::slice::from_raw_parts_mut(
-            ptr, 
-            len
-        );
+        let res = ::std::slice::from_raw_parts_mut(ptr, len);
         Ok(MapArray {
             gl: gl.clone(),
             slice: res,
-            len: len
+            len: len,
         })
     }
 }
@@ -39,7 +41,11 @@ impl<'a, T> MapArray<'a, T> {
 impl<'a, T> Drop for MapArray<'a, T> {
     fn drop(&mut self) {
         unsafe {
-            self.gl.flush_mapped_buffer_range(glow::ARRAY_BUFFER, 0, (::std::mem::size_of::<T>() * self.len) as i32);
+            self.gl.flush_mapped_buffer_range(
+                glow::ARRAY_BUFFER,
+                0,
+                (::std::mem::size_of::<T>() * self.len) as i32,
+            );
             self.gl.unmap_buffer(glow::ARRAY_BUFFER);
         }
     }
@@ -47,7 +53,7 @@ impl<'a, T> Drop for MapArray<'a, T> {
 
 pub struct IndexBuffer {
     veb: ElementArrayBuffer,
-    pub size: usize
+    pub size: usize,
 }
 
 impl IndexBuffer {
@@ -56,7 +62,10 @@ impl IndexBuffer {
         veb.bind();
         veb.element_draw_data(index); // is it safe without thoose binds
         veb.unbind();
-        Ok(IndexBuffer{veb: veb, size: index.len()})
+        Ok(IndexBuffer {
+            veb: veb,
+            size: index.len(),
+        })
     }
 
     pub fn bind(&self) {
@@ -104,7 +113,7 @@ where
     B: BufferType,
 {
     pub fn new(gl: &GL) -> Result<Buffer<B>, String> {
-        let vbo = unsafe{gl.create_buffer()?};
+        let vbo = unsafe { gl.create_buffer()? };
         Ok(Buffer {
             gl: gl.clone(),
             vbo,
@@ -127,12 +136,12 @@ where
     pub fn static_draw_data<T>(&self, data: &[T]) {
         unsafe {
             self.gl.buffer_data_u8_slice(
-                glow::ARRAY_BUFFER, 
+                glow::ARRAY_BUFFER,
                 std::slice::from_raw_parts(
-                    data.as_ptr() as *const u8, 
-                    data.len() * std::mem::size_of::<T>()
+                    data.as_ptr() as *const u8,
+                    data.len() * std::mem::size_of::<T>(),
                 ),
-                glow::STATIC_DRAW
+                glow::STATIC_DRAW,
             );
         }
     }
@@ -140,14 +149,13 @@ where
     pub fn dynamic_draw_data<T>(&self, data: &[T]) {
         unsafe {
             self.gl.buffer_data_u8_slice(
-                glow::ARRAY_BUFFER, 
+                glow::ARRAY_BUFFER,
                 std::slice::from_raw_parts(
-                    data.as_ptr() as *const u8, 
-                    data.len() * std::mem::size_of::<T>()
+                    data.as_ptr() as *const u8,
+                    data.len() * std::mem::size_of::<T>(),
                 ),
-                glow::DYNAMIC_DRAW
+                glow::DYNAMIC_DRAW,
             );
-
         }
     }
 
@@ -156,10 +164,10 @@ where
             self.gl.buffer_data_u8_slice(
                 glow::ELEMENT_ARRAY_BUFFER,
                 std::slice::from_raw_parts(
-                    data.as_ptr() as *const u8, 
-                    data.len() * std::mem::size_of::<u16>()
+                    data.as_ptr() as *const u8,
+                    data.len() * std::mem::size_of::<u16>(),
                 ),
-                glow::STATIC_DRAW
+                glow::STATIC_DRAW,
             );
         }
     }
@@ -170,9 +178,7 @@ where
     B: BufferType,
 {
     fn drop(&mut self) {
-        unsafe {
-            self.gl.delete_buffer(self.vbo)
-        }
+        unsafe { self.gl.delete_buffer(self.vbo) }
     }
 }
 
@@ -186,7 +192,7 @@ pub struct VertexArray {
 
 impl VertexArray {
     pub fn new(gl: &GL) -> Result<VertexArray, String> {
-        let vao = unsafe {gl.create_vertex_array()?};
+        let vao = unsafe { gl.create_vertex_array()? };
         Ok(VertexArray {
             gl: gl.clone(),
             vao,

@@ -1,10 +1,10 @@
-use std::os::raw::{c_uint, c_int};
+use std::os::raw::{c_int, c_uint};
 
-use glow::Context;
-use glow::native::Context as GL_Context;
-use glow;
-use super::GL;
 use super::buffer::{VertexArray, VertexBufferBehavior};
+use super::GL;
+use glow;
+use glow::native::Context as GL_Context;
+use glow::Context;
 
 #[derive(Clone, Debug)]
 pub struct Texture {
@@ -41,23 +41,40 @@ impl Texture {
                 glow::UNSIGNED_BYTE,
                 Some(bytes),
             );
-            gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
-            gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
-            gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
-            gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
+            gl_ctx.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_S,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+            gl_ctx.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_T,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+            gl_ctx.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_MAG_FILTER,
+                glow::NEAREST as i32,
+            );
+            gl_ctx.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_MIN_FILTER,
+                glow::NEAREST as i32,
+            );
             gl_ctx.bind_texture(glow::TEXTURE_2D, None);
-            Texture { texture, w: width, h: height }
+            Texture {
+                texture,
+                w: width,
+                h: height,
+            }
         }
     }
-    
+
     pub fn dimensions(&self) -> (u32, u32) {
         (self.w, self.h)
     }
 
-    pub fn new(
-        gl_ctx: &GL,
-        (width, height): (u32, u32)
-    ) -> Self {
+    pub fn new(gl_ctx: &GL, (width, height): (u32, u32)) -> Self {
         let mut name = 0;
         unsafe {
             // Create a texture for the glyphs
@@ -68,8 +85,16 @@ impl Texture {
             gl_ctx.bind_texture(glow::TEXTURE_2D, Some(name));
             // gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as _);
             // gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as _);
-            gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::LINEAR as _);
-            gl_ctx.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as _);
+            gl_ctx.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_MIN_FILTER,
+                glow::LINEAR as _,
+            );
+            gl_ctx.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_MAG_FILTER,
+                glow::NEAREST as _,
+            );
             gl_ctx.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
@@ -84,11 +109,11 @@ impl Texture {
             gl_ctx.bind_texture(glow::TEXTURE_2D, None);
             // gl_assert_ok!();
 
-            Self { 
+            Self {
                 texture: name,
                 w: width,
-                h: height
-             }
+                h: height,
+            }
         }
     }
 }
@@ -97,7 +122,7 @@ impl Texture {
 // impl Drop for Texture {
 //     fn drop(&mut self) {
 //         unsafe {
-            
+
 //         }
 //     }
 // }
@@ -120,7 +145,6 @@ impl UniformValue for (f32, f32, f32, f32) {
     }
 }
 
-
 impl UniformValue for (f32, f32, f32) {
     fn set(self, gl: &GL, location: <GL_Context as Context>::UniformLocation) {
         unsafe {
@@ -137,7 +161,6 @@ impl UniformValue for (f32, f32) {
     }
 }
 
-
 impl UniformValue for f32 {
     fn set(self, gl: &GL, location: <GL_Context as Context>::UniformLocation) {
         unsafe {
@@ -149,19 +172,21 @@ impl UniformValue for f32 {
 impl UniformValue for [[f32; 4]; 4] {
     fn set(self, gl: &GL, location: <GL_Context as Context>::UniformLocation) {
         unsafe {
-            // transmute here according to 
-            // https://users.rust-lang.org/t/converting-f32-4-4-to-f32-16/22391 
+            // transmute here according to
+            // https://users.rust-lang.org/t/converting-f32-4-4-to-f32-16/22391
             // is safe
-            gl.uniform_matrix_4_f32_slice(Some(location), false, &std::mem::transmute(self))
+            gl.uniform_matrix_4_f32_slice(
+                Some(location),
+                false,
+                &std::mem::transmute(self),
+            )
         }
     }
 }
 
 impl UniformValue for [f32; 16] {
     fn set(self, gl: &GL, location: <GL_Context as Context>::UniformLocation) {
-        unsafe {
-            gl.uniform_matrix_4_f32_slice(Some(location), false, &self)            
-        }
+        unsafe { gl.uniform_matrix_4_f32_slice(Some(location), false, &self) }
     }
 }
 
@@ -176,18 +201,26 @@ impl UniformValue for Texture {
 }
 
 impl Program {
-    pub fn set_layout(&self, gl: &GL, vao: &VertexArray, vbos: &[&dyn VertexBufferBehavior]) {
+    pub fn set_layout(
+        &self,
+        gl: &GL,
+        vao: &VertexArray,
+        vbos: &[&dyn VertexBufferBehavior],
+    ) {
         vao.bind();
         for vbo in vbos.iter() {
             vbo.bind();
             vbo.vertex_attrib_pointers(&gl, &self);
             vbo.unbind();
-        };
+        }
         vao.unbind();
     }
 
-    pub fn from_shaders(gl: &GL, shaders: &[Shader]) -> Result<Program, String> {
-        let program_id = unsafe { gl.create_program()?};
+    pub fn from_shaders(
+        gl: &GL,
+        shaders: &[Shader],
+    ) -> Result<Program, String> {
+        let program_id = unsafe { gl.create_program()? };
 
         for shader in shaders {
             unsafe {
@@ -224,11 +257,7 @@ impl Program {
         }
     }
 
-    pub fn set_uniform<T: UniformValue>(
-        &self,
-        name: &str,
-        uniform: T,
-    ) {
+    pub fn set_uniform<T: UniformValue>(&self, name: &str, uniform: T) {
         self.set_used();
         let location = unsafe {
             self.gl.get_uniform_location(self.id(), name)
@@ -292,7 +321,7 @@ fn shader_from_source(
         gl.shader_source(id, source);
         gl.compile_shader(id);
     }
-    unsafe{
+    unsafe {
         if !gl.get_shader_compile_status(id) {
             let error = gl.get_shader_info_log(id);
             return Err(error);
